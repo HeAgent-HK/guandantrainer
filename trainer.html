@@ -23,7 +23,7 @@
   .stepbar span { padding: 5px 14px; border-radius: 20px; background: #ddd; font-size: 13px; color: #555; }
   .stepbar span.on { background: #0f5132; color: #fff; font-weight: bold; }
   .cards { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
-  .card { display: inline-block; min-width: 44px; text-align: center; padding: 8px 6px; border-radius: 6px; background: #fff; border: 1px solid #bbb; font-weight: bold; font-size: 15px; box-shadow: 1px 1px 2px rgba(0,0,0,.15); }
+  .card { display: inline-block; box-sizing: border-box; height: 64px; min-width: 44px; text-align: center; padding: 8px 6px; border-radius: 6px; background: #fff; border: 1px solid #bbb; font-weight: bold; font-size: 15px; box-shadow: 1px 1px 2px rgba(0,0,0,.15); }
   .card.red { color: #d40000; }
   .card.joker { color: #333; }
   .card.wild { border: 2px dashed #e69100; background: #fff8e1; }
@@ -78,7 +78,8 @@
     .nav { margin-left: 0; width: 100%; }
     main { margin: 10px auto; padding: 0 8px; }
     .panel { padding: 14px; border-radius: 10px; margin-bottom: 12px; }
-    .card { min-width: 38px; padding: 7px 3px; font-size: 13px; }
+    .card { min-width: 38px; height: 56px; padding: 7px 3px; font-size: 13px; }
+    .pile .card { margin-top: -34px; }
     .deckwrap { gap: 5px; padding: 10px; }
     .cardback { width: 38px; height: 56px; line-height: 52px; font-size: 17px; }
     .btnrow button { padding: 13px 18px; font-size: 16px; }
