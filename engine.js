@@ -204,7 +204,7 @@ var GuandanEngine = (function () {
 
     // 2) 同花顺：在剩余硬牌上按花色检测（高位窗口优先），消耗 rem 防与顺子重复
     var suits = ['S', 'H', 'D', 'C'], suitName = { S: '黑桃', H: '红桃', D: '方块', C: '梅花' };
-    var suitRuns = [], sflushA = 0, sflushLevel = 0;
+    var suitRuns = [], sflushA = 0, sflushLevel = 0, sflushPei = 0;
     var bySuit = { S: {}, H: {}, D: {}, C: {} };
     for (sv = 3; sv <= 18; sv++) { bySuit.S[sv] = 0; bySuit.H[sv] = 0; bySuit.D[sv] = 0; bySuit.C[sv] = 0; }
     for (i = 0; i < hand.length; i++) {
@@ -233,6 +233,7 @@ var GuandanEngine = (function () {
         if (run5.from === 0) aInRun++;          // A1 位的 A（slot0 不在 slots 的 sv 扣减里）
         sflushA += aInRun;
         sflushLevel += lvlInRun;
+        sflushPei += run5.peiUsed || 0;
       }
       peiLeft = r5.peiLeft;
     }
@@ -317,7 +318,7 @@ var GuandanEngine = (function () {
     return {
       counts: counts, peis: peis, bombs: bombs, suitRuns: suitRuns,
       hands: hands, singles: singles, structures: structures,
-      sflushA: sflushA, sflushLevel: sflushLevel,
+      sflushA: sflushA, sflushLevel: sflushLevel, sflushPei: sflushPei,
       wildNote: peis > 0 ? '配牌 ' + peis + ' 张（已尽量用于补炸/补连张）' : ''
     };
   }
@@ -357,7 +358,13 @@ var GuandanEngine = (function () {
     if (bombHasLevel || plainLevel >= 4) lvlScore = 0;     // 全在炸里
     else lvlScore = Math.max(0, plainLevel - a.sflushLevel); // 减去同花顺用掉的
     if (lvlScore > 0) parts.push({ name: '级牌×' + lvlScore, score: lvlScore * 1.5 });
-    if (a.peis > 0) parts.push({ name: '红心配×' + a.peis, score: a.peis * 2.5 });
+    // 配牌：用于炸弹/同花顺的部分不再单独计分（价值已体现在炸分/同花顺分）；
+    // 用于顺子/连对/钢板或未用的配，照计 2.5（这些牌型没有额外加分，不构成重复）
+    var peiInBombs = 0;
+    for (i = 0; i < a.bombs.length; i++) peiInBombs += a.bombs[i].usedPei || 0;
+    var peiScored = peiInBombs + (a.sflushPei || 0);
+    var freePeis = Math.max(0, a.peis - peiScored);
+    if (freePeis > 0) parts.push({ name: '红心配×' + freePeis, score: freePeis * 2.5 });
     if (level !== 14) {
       var acesRaw = a.counts[14] || 0;
       var aces = 0;
@@ -386,7 +393,7 @@ var GuandanEngine = (function () {
     var facts = [];
     facts.push('王：大王' + bigJ + ' 小王' + smallJ + (bigJ >= 2 && smallJ >= 2 ? '（四大天王，全场最大）' : ''));
     facts.push('硬炸 ' + a.bombs.length + ' 个' + (a.bombs.length ? '：' + bombList(a.bombs) : '') + (a.suitRuns.length ? '；同花顺 ' + a.suitRuns.length + ' 个' : ''));
-    facts.push('级牌 ' + levelCount + ' 张' + (a.peis ? '，其中配牌⭐ ' + a.peis + ' 张' : '') + (plainLevel > lvlScore ? '（部分已进炸/同花顺，不单计）' : ''));
+    facts.push('级牌 ' + levelCount + ' 张' + (a.peis ? '，其中配牌⭐ ' + a.peis + ' 张' + (peiScored > 0 ? '（' + peiScored + ' 张已用于炸/同花顺，不单计）' : '') : '') + (plainLevel > lvlScore ? '（部分已进炸/同花顺，不单计）' : ''));
     facts.push('估手数约 ' + a.hands + ' 手，单张散牌 ' + a.singles + ' 张' + (a.peis ? '（配牌已尽量用于补型）' : ''));
 
     var advice = [];
