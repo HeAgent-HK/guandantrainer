@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>掼蛋教练</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei", "微软雅黑", sans-serif; background: #0f5132; color: #1a1a1a; padding-bottom: 40px; }
+  header { background: #0a3a22; color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 20px; margin-right: 10px; }
+  header select, header button, .nav button { font-size: 14px; padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; }
+  header select { background: #fff; }
+  header button.primary { background: #ffc107; color: #333; font-weight: bold; }
+  .nav { margin-left: auto; display: flex; gap: 8px; }
+  .nav button { background: #1d6b45; color: #fff; }
+  .nav button.active { background: #ffc107; color: #333; font-weight: bold; }
+  main { max-width: 1060px; margin: 18px auto; padding: 0 14px; }
+  .panel { background: #f7f7f2; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  .panel h2 { font-size: 17px; margin-bottom: 10px; color: #0a3a22; }
+  .muted { color: #666; font-size: 13px; line-height: 1.7; }
+  .stepbar { display: flex; gap: 8px; margin-bottom: 14px; }
+  .stepbar span { padding: 5px 14px; border-radius: 20px; background: #ddd; font-size: 13px; color: #555; }
+  .stepbar span.on { background: #0f5132; color: #fff; font-weight: bold; }
+  .cards { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+  .card { display: inline-block; min-width: 44px; text-align: center; padding: 8px 6px; border-radius: 6px; background: #fff; border: 1px solid #bbb; font-weight: bold; font-size: 15px; box-shadow: 1px 1px 2px rgba(0,0,0,.15); }
+  .card.red { color: #d40000; }
+  .card.joker { color: #333; }
+  .card.wild { border: 2px dashed #e69100; background: #fff8e1; }
+  .cards.sortable .card { cursor: grab; -ms-user-select: none; user-select: none; }
+  .card.sel { background: #ffe082; border-color: #e69100; box-shadow: 0 0 0 2px #e69100; }
+  .card.dragging { position: fixed; opacity: .88; z-index: 999; pointer-events: none; cursor: grabbing; }
+  .card.ph { visibility: hidden; }
+  .board { margin-top: 10px; }
+  .unzone { min-height: 84px; background: #ececdd; border-radius: 10px; padding: 10px; border: 2px dashed #aaa; }
+  .slots { margin-top: 12px; }
+  .slot { border: 2px dashed #c8c8b8; border-radius: 10px; padding: 8px 10px; margin: 8px 0; min-height: 72px; background: #fff; }
+  .slot.over { border-color: #e69100; background: #fff8e1; }
+  .board .slottitle { font-size: 13px; color: #0a3a22; font-weight: bold; margin-bottom: 6px; }
+  /* ---- 抓牌区与手牌区 ---- */
+  .deckwrap { background: #0a3a22; border-radius: 12px; padding: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .cardback { width: 44px; height: 64px; background: #164a7c; border: 2px solid #e8e8e8; border-radius: 6px; cursor: pointer; color: #fff; font-size: 20px; font-weight: bold; display: inline-block; text-align: center; line-height: 60px; -ms-user-select: none; user-select: none; }
+  .cardback:hover { background: #2a5f96; }
+  .handzone { position: relative; margin-top: 12px; background: #0f5132; border-radius: 12px; padding: 0 8px; overflow: hidden; }
+  .handzone .card { position: absolute; transition: left .25s ease, top .25s ease, opacity .3s ease; }
+  /* ---- 牌堆式叠放（自动换行，任何宽度完整显示） ---- */
+  .pile { display: inline-block; vertical-align: bottom; margin: 0 10px 6px 0; white-space: nowrap; }
+  .pile .card { position: relative; display: block; margin-top: -38px; }
+  .pile .card:first-child { margin-top: 0; }
+  /* ---- 理牌区（摆牌型） ---- */
+  .rowszone { margin-top: 12px; }
+  .rowslot { border: 2px dashed #cfcfc0; border-radius: 10px; padding: 6px 10px; margin: 8px 0; background: #fff; }
+  .rowslot.active { border-color: #e69100; background: #fff8e1; }
+  .rowhead { font-size: 13px; font-weight: bold; color: #0a3a22; margin-bottom: 6px; cursor: pointer; }
+  .rowtag { font-size: 12px; padding: 1px 10px; border-radius: 10px; margin-left: 8px; background: #eee; color: #666; font-weight: normal; }
+  .tag-bomb { background: #c0392b; color: #fff; }
+  .tag-sflush { background: #b8860b; color: #fff; }
+  .tag-straight, .tag-pairs, .tag-steel, .tag-fullhouse { background: #2e8b57; color: #fff; }
+  .tag-mixed { background: #999; color: #fff; }
+  .rowcards { min-height: 40px; }
+  /* ---- 记点明细 ---- */
+  .partrow { display: flex; justify-content: space-between; max-width: 460px; font-size: 14px; padding: 3px 0; border-bottom: 1px dashed #ddd; }
+  .partrow .pos { color: #2e8b57; } .partrow .neg { color: #c0392b; }
+  .formula { font-size: 12px; color: #888; margin: 6px 0 10px; line-height: 1.6; }
+  /* ---- 讨论区聊天 ---- */
+  .chatline { margin: 5px 0; font-size: 14px; line-height: 1.6; word-break: break-all; }
+  .chatline b { color: #0a3a22; }
+  .chatline.kimi { background: #eef6ef; border-radius: 6px; padding: 6px 10px; }
+  .chatline.err { color: #c0392b; font-size: 13px; }
+  .chatline.sys { color: #999; font-size: 12px; }
+  .grouptitle { font-size: 13px; color: #0a3a22; margin-top: 12px; font-weight: bold; }
+  .btnrow { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .btnrow button { font-size: 15px; padding: 10px 22px; border: none; border-radius: 8px; cursor: pointer; background: #0f5132; color: #fff; font-weight: bold; }
+  .btnrow button.alt { background: #6c757d; }
+  .btnrow button.warn { background: #c0392b; }
+  .btnrow button:disabled { background: #999; cursor: default; }
+  form label.q { display: block; font-weight: bold; margin: 14px 0 6px; }
+  form select, form input[type=text] { font-size: 14px; padding: 7px 10px; border: 1px solid #aaa; border-radius: 6px; width: 100%; max-width: 420px; }
+  .opt { display: block; background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; margin: 8px 0; cursor: pointer; max-width: 560px; }
+  .opt:hover { border-color: #0f5132; }
+  .opt input { margin-right: 8px; }
+  .cols { display: flex; gap: 20px; flex-wrap: wrap; }
+  .cols > div { flex: 1; min-width: 300px; }
+  .dimbar { background: #e3e3da; border-radius: 6px; height: 20px; margin: 4px 0 10px; position: relative; overflow: hidden; }
+  .dimbar i { display: block; height: 100%; background: #2e8b57; }
+  .dimrow span { font-size: 13px; }
+  .score-big { font-size: 34px; font-weight: bold; color: #0a3a22; }
+  .badge { display: inline-block; padding: 4px 14px; border-radius: 16px; background: #ffc107; color: #333; font-weight: bold; margin-left: 8px; }
+  .facts li, .advice li { margin: 6px 0 6px 18px; line-height: 1.6; font-size: 14px; }
+  .verdict { padding: 8px 12px; border-radius: 8px; margin: 6px 0; font-size: 14px; background: #fff; border-left: 5px solid #ccc; }
+  .verdict.ok { border-color: #2e8b57; } .verdict.mid { border-color: #e69100; } .verdict.bad { border-color: #c0392b; }
+  table.journal { width: 100%; border-collapse: collapse; font-size: 14px; background: #fff; }
+  table.journal th, table.journal td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+  table.journal th { background: #0f5132; color: #fff; }
+  table.journal button { font-size: 12px; padding: 4px 10px; border: none; border-radius: 5px; cursor: pointer; background: #0f5132; color: #fff; margin-right: 4px; }
+  table.journal button.del { background: #c0392b; }
+  pre.selftest { background: #222; color: #8f8; padding: 14px; border-radius: 8px; font-size: 13px; overflow: auto; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🃏 掼蛋教练</h1>
+  <label style="font-size:14px">当前打：
+    <select id="levelSel"></select>
+  </label>
+  <button class="primary" id="btnDeal">发一副新牌（27张）</button>
+  <div class="nav">
+    <button data-view="train" class="active">练习</button>
+    <button data-view="journal">错题本</button>
+    <button data-view="selftest">引擎自检</button>
+  </div>
+</header>
+<main id="app"></main>
+
+<script src="engine.js"></script>
+<script>
+var E = GuandanEngine;
+var LEVEL_SEL = document.getElementById('levelSel');
+// 全局错误显示：出错时在页顶红条提示，避免“点了没反应”却不知道原因
+window.onerror = function (msg, src, line) {
+  var bar = document.getElementById('errbar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'errbar';
+    bar.style.cssText = 'background:#c0392b;color:#fff;padding:10px 16px;font-size:13px;';
+    document.body.insertBefore(bar, document.body.firstChild);
+  }
+  bar.textContent = '页面脚本出错（第' + line + '行）：' + msg + ' —— 请截图发给 Kimi';
+};
+// querySelectorAll 转数组（兼容 IE：NodeList 没有 forEach）
+function qa(sel, root) {
+  return Array.prototype.slice.call((root || document).querySelectorAll(sel));
+}
+(function () {
+  for (var v = 15; v >= 3; v--) {
+    var o = document.createElement('option');
+    o.value = v;
+    o.textContent = '打' + E.LEVEL_NAMES[v] + (v === 15 ? '（默认）' : '');
+    LEVEL_SEL.appendChild(o);
+  }
+  LEVEL_SEL.value = '15';
+})();
+
+var state = { view: 'train', step: 0, quiz: null, shuffled: null, my: null, savedThisHand: false, chatOpen: false, chatDraft: '' };
+
+/* ---------- 视图切换 ---------- */
+qa('.nav button').forEach(function (b) {
+  b.onclick = function () {
+    state.view = b.dataset.view;
+    qa('.nav button').forEach(function (x) { x.classList.toggle('active', x === b); });
+    render();
+  };
+});
+document.getElementById('btnDeal').onclick = function () { newHand(); };
+
+function newHand(level, hand) {
+  level = level || parseInt(LEVEL_SEL.value, 10);
+  hand = hand || E.dealHand(level);
+  state.quiz = E.buildQuiz(hand, level);
+  state.shuffled = E.shuffle(hand.slice());
+  state.deckSlots = state.shuffled.map(function (c) { return { card: c, up: false }; });
+  state.handGroups = [];
+  state.cardEls = {};
+  state.rows = [[], [], [], [], [], []];
+  state.activeRow = 0;
+  state.dealStart = Date.now();
+  deckZoneEl = null; handZoneEl = null; rowsZoneEl = null;
+  resetChat();
+  state.step = 1;
+  state.my = null;
+  state.savedThisHand = false;
+  state.view = 'train';
+  qa('.nav button').forEach(function (x) { x.classList.toggle('active', x.dataset.view === 'train'); });
+  render();
+  window.scrollTo(0, 0);
+}
+
+/* ---------- 渲染 ---------- */
+function el(tag, cls, html) {
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html !== undefined) e.innerHTML = html;
+  return e;
+}
+
+function cardHtml(card) {
+  var cls = 'card';
+  if (card.suit === 'H' || card.suit === 'D') cls += ' red';
+  if (card.suit === 'JOKER') cls += ' joker';
+  if (E.isPei(card, state.quiz.level)) cls += ' wild';
+  return '<span class="' + cls + '">' + E.cardLabel(card, state.quiz.level) + '</span>';
+}
+
+/* ---------- 理牌计时器（实战建议 75 秒内完成） ---------- */
+var dealTimer = null, dealBeepAt = 0;
+
+function fmtSecs(s) {
+  if (s < 60) return s + ' 秒';
+  return Math.floor(s / 60) + ' 分' + (s % 60 ? (s % 60) + ' 秒' : '');
+}
+
+function dealBeep() {
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    var ctx = new AC();
+    if (ctx.resume) { try { ctx.resume(); } catch (e0) {} }
+    for (var i = 0; i < 2; i++) {
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880;
+      var t0 = ctx.currentTime + i * 0.28;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(0.18, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.25);
+      o.start(t0);
+      o.stop(t0 + 0.28);
+    }
+  } catch (e) { /* 无声也不影响功能 */ }
+}
+
+function startDealTimer() {
+  if (dealTimer) return;
+  if (typeof state.dealStart !== 'number') state.dealStart = Date.now();
+  dealBeepAt = 0;
+  dealTimer = setInterval(function () {
+    if (state.view !== 'train' || state.step !== 1) return;
+    updateDealHint(Math.floor((Date.now() - state.dealStart) / 1000));
+  }, 1000);
+}
+
+function stopDealTimer() {
+  if (dealTimer) { clearInterval(dealTimer); dealTimer = null; }
+}
+
+function updateDealHint(secs) {
+  var el = document.getElementById('dealHint');
+  if (el) {
+    if (secs < 75) {
+      el.textContent = '⏱ 理牌 ' + fmtSecs(secs);
+      el.style.color = '#0f5132';
+      el.style.background = '';
+    } else {
+      el.textContent = '⏱ 已用 ' + fmtSecs(secs) + '（实战建议 75 秒内完成）';
+      el.style.color = '#c0392b';
+      el.style.background = '#fdecea';
+    }
+  }
+  if (secs >= 75 && dealBeepAt === 0) {
+    dealBeepAt = secs;
+    dealBeep();
+  } else if (secs >= 75 && secs - dealBeepAt >= 60) {
+    dealBeepAt = secs;
+    dealBeep();
+  }
+}
+
+// 理牌区全部退回手牌（思考过程中想重摆时用）
+function clearAllRows() {
+  if (clicksLocked()) return;
+  var g = state.handGroups, r, i, card, sv, gi;
+  for (r = 0; r < state.rows.length; r++) {
+    var arr = state.rows[r];
+    for (i = 0; i < arr.length; i++) {
+      card = arr[i];
+      sv = E.sortValue(card.v, state.quiz.level);
+      for (gi = 0; gi < g.length; gi++) if (g[gi].sv <= sv) break;
+      if (gi < g.length && g[gi].sv === sv) g[gi].cards.push(card);
+      else g.splice(gi, 0, { sv: sv, cards: [card] });
+    }
+    state.rows[r] = [];
+  }
+  layoutHand();
+  refreshRows();
+}
+
+/* ---------- 拟真抓牌：点背面牌抓牌，自动插入手牌（大→小，同值叠放） ---------- */
+function hasCls(e, c) { return (' ' + e.className + ' ').indexOf(' ' + c + ' ') >= 0; }
+function addCls(e, c) { if (!hasCls(e, c)) e.className += ' ' + c; }
+function removeCls(e, c) { e.className = (' ' + e.className + ' ').replace(' ' + c + ' ', ' ').replace(/^\s+|\s+$/g, ''); }
+
+var deckZoneEl = null, handZoneEl = null;
+var clickLockUntil = 0;
+function lockClicks(ms) { clickLockUntil = Date.now() + ms; }
+function clicksLocked() { return Date.now() < clickLockUntil; }
+
+function makeCardEl(card) {
+  var s = document.createElement('span');
+  var cls = 'card';
+  if (card.suit === 'H' || card.suit === 'D') cls += ' red';
+  if (card.suit === 'JOKER') cls += ' joker';
+  if (E.isPei(card, state.quiz.level)) cls += ' wild';
+  s.className = cls;
+  s.textContent = E.cardLabel(card, state.quiz.level);
+  s._card = card;
+  return s;
+}
+
+// 抓牌区：state.deckSlots[i] = {card, up} 或 null（已抓走）
+function renderDeckArea(zone) {
+  zone.innerHTML = '';
+  var items = state.deckSlots;
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    if (!it) {
+      var ph = el('span', 'cardback', '·');
+      ph.style.visibility = 'hidden';
+      zone.appendChild(ph);
+    } else if (it.up) {
+      zone.appendChild(makeCardEl(it.card));
+    } else {
+      var b = el('span', 'cardback', '掼');
+      b._idx = i;
+      zone.appendChild(b);
+    }
+  }
+}
+
+// 手牌区：state.handGroups = [{sv, cards:[...]}] 降序；同值叠放
+function renderHandZone(zone) {
+  handZoneEl = zone;
+  state.cardEls = {};
+  zone.innerHTML = '';
+  layoutHand();
+}
+
+function layoutHand() {
+  var zone = handZoneEl;
+  if (!zone) return;
+  var g = state.handGroups;
+  var maxN = 1, gi, li;
+  for (gi = 0; gi < g.length; gi++) if (g[gi].cards.length > maxN) maxN = g[gi].cards.length;
+  var zoneH = 64 + 26 * (maxN - 1) + 14;
+  var zoneW = zone.clientWidth || 1000;   // 桩环境无 clientWidth，按单行
+  var x = 10, lift = 0;
+  var liveIds = {};
+  for (gi = 0; gi < g.length; gi++) {
+    if (x > 10 && x + 54 > zoneW - 8) { x = 10; lift += zoneH + 8; }   // 超宽换行，新行叠在上方
+    var group = g[gi];
+    for (li = 0; li < group.cards.length; li++) {
+      var card = group.cards[li];
+      var cel = state.cardEls[card.id];
+      var top = zoneH - 8 - 64 - 26 * li - lift;
+      liveIds[card.id] = true;
+      if (!cel) {
+        cel = makeCardEl(card);
+        cel.style.left = x + 'px';
+        cel.style.top = (top - 60) + 'px';
+        cel.style.opacity = '0';
+        cel.style.zIndex = li + 1;
+        zone.appendChild(cel);
+        state.cardEls[card.id] = cel;
+        (function (elm) {
+          setTimeout(function () {
+            elm.style.top = elm._topFinal + 'px';
+            elm.style.opacity = '1';
+          }, 30);
+        })(cel);
+      } else {
+        cel.style.left = x + 'px';
+        cel.style.top = top + 'px';
+        cel.style.opacity = '1';
+        cel.style.zIndex = li + 1;
+      }
+      cel._topFinal = top;
+    }
+    x += 54;
+  }
+  zone.style.height = (zoneH + lift) + 'px';
+  // 清理残留：数据里已不在手牌、但 DOM 里还挂着的牌（避免幽灵牌重叠）
+  var kids = zone.children;
+  for (var i = kids.length - 1; i >= 0; i--) {
+    var k = kids[i];
+    if (k && k._card && !liveIds[k._card.id]) {
+      if (k.parentNode === zone) zone.removeChild(k);
+      delete state.cardEls[k._card.id];
+    }
+  }
+}
+
+function insertToHand(card) {
+  var sv = E.sortValue(card.v, state.quiz.level);
+  var g = state.handGroups, i;
+  for (i = 0; i < g.length; i++) if (g[i].sv <= sv) break;
+  if (i < g.length && g[i].sv === sv) g[i].cards.push(card);
+  else g.splice(i, 0, { sv: sv, cards: [card] });
+  layoutHand();
+  refreshRows();
+  var ld = document.getElementById('lastDraw');
+  if (ld) ld.textContent = '刚抓到：' + E.cardLabel(card, state.quiz.level);
+  refreshDrawCount();
+}
+
+function refreshDrawCount() {
+  var drawn = 0;
+  for (var i = 0; i < state.deckSlots.length; i++) if (state.deckSlots[i] === null) drawn++;
+  var c = document.getElementById('drawCnt');
+  if (c) c.textContent = '已抓 ' + drawn + '/27';
+  var hint = document.getElementById('drawAllHint');
+  if (hint) hint.textContent = (drawn === 27) ? '27张抓完了，检查一下手牌结构，进评估吧' : '';
+}
+
+function onDeckClick(e) {
+  var t = e.target || e.srcElement;
+  while (t && t !== deckZoneEl) {
+    if (t.className && hasCls(t, 'cardback') && t._idx !== undefined) break;
+    t = t.parentNode;
+  }
+  if (!t || !t.className || !hasCls(t, 'cardback') || t._idx === undefined) return;
+  var it = state.deckSlots[t._idx];
+  if (!it) return;
+  it.up = true;
+  renderDeckArea(deckZoneEl);
+  var idx = t._idx;
+  setTimeout(function () {
+    var item = state.deckSlots[idx];
+    if (!item) return;
+    state.deckSlots[idx] = null;
+    insertToHand(item.card);
+    renderDeckArea(deckZoneEl);
+  }, 450);
+}
+
+function resetDraw() {
+  state.deckSlots = state.shuffled.map(function (c) { return { card: c, up: false }; });
+  state.handGroups = [];
+  state.cardEls = {};
+  state.rows = [[], [], [], [], [], []];
+  state.activeRow = 0;
+  if (deckZoneEl) renderDeckArea(deckZoneEl);
+  if (handZoneEl) handZoneEl.innerHTML = '';
+  if (rowsZoneEl) renderRows(rowsZoneEl);
+  refreshDrawCount();
+  var ld = document.getElementById('lastDraw');
+  if (ld) ld.textContent = '';
+}
+
+/* ---------- 理牌区：把成型牌型从手牌抽出来，一行行摆，引擎实时校验 ---------- */
+var rowsZoneEl = null;
+
+function bySvDesc(a, b) {
+  return E.sortValue(b.v, state.quiz.level) - E.sortValue(a.v, state.quiz.level);
+}
+
+function renderRows(zone) {
+  rowsZoneEl = zone;
+  zone.innerHTML = '';
+  zone.appendChild(el('div', 'slottitle',
+    '理牌区 —— 点击<b>手牌</b>把牌放到当前行（橙框，点行头可切换）；点<b>行内的牌</b>退回手牌。每行实时校验牌型。'));
+  for (var i = 0; i < state.rows.length; i++) {
+    var row = el('div', 'rowslot' + (i === state.activeRow ? ' active' : ''));
+    row._rowIdx = i;
+    var info = E.classifyRow(state.rows[i], state.quiz.level);
+    row.appendChild(el('div', 'rowhead', (i === state.activeRow ? '▶ ' : '　') + '行' + (i + 1) +
+      ' <span class="rowtag tag-' + info.type + '">' + (info.label || '空') + '</span>'));
+    var rz = el('div', 'cards rowcards');
+    var sorted = state.rows[i].slice().sort(bySvDesc);
+    for (var j = 0; j < sorted.length; j++) rz.appendChild(makeCardEl(sorted[j]));
+    row.appendChild(rz);
+    zone.appendChild(row);
+  }
+}
+
+function refreshRows() {
+  if (rowsZoneEl && state.view === 'train' && state.step === 1) renderRows(rowsZoneEl);
+}
+
+function moveHandToRow(card) {
+  if (clicksLocked()) return;
+  var g = state.handGroups, gi, li;
+  for (gi = 0; gi < g.length; gi++) {
+    for (li = 0; li < g[gi].cards.length; li++) {
+      if (g[gi].cards[li].id === card.id) {
+        g[gi].cards.splice(li, 1);
+        if (g[gi].cards.length === 0) g.splice(gi, 1);
+        state.rows[state.activeRow].push(card);
+        layoutHand();
+        refreshRows();
+        lockClicks(350);
+        return;
+      }
+    }
+  }
+}
+
+function returnCardToHand(card) {
+  if (clicksLocked()) return;
+  for (var r = 0; r < state.rows.length; r++) {
+    var arr = state.rows[r];
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i].id === card.id) {
+        arr.splice(i, 1);
+        insertToHand(card);   // 自动插回手牌原位
+        refreshRows();
+        lockClicks(350);
+        return;
+      }
+    }
+  }
+}
+
+function onHandClick(e) {
+  var t = e.target || e.srcElement;
+  while (t && t !== handZoneEl) {
+    if (t.className && hasCls(t, 'card') && t._card) { moveHandToRow(t._card); return; }
+    t = t.parentNode;
+  }
+}
+
+function onRowsClick(e) {
+  var t = e.target || e.srcElement;
+  while (t && t !== rowsZoneEl) {
+    if (t.className && hasCls(t, 'card') && t._card) { returnCardToHand(t._card); return; }
+    if (t.className && hasCls(t, 'rowslot')) { state.activeRow = t._rowIdx; renderRows(rowsZoneEl); return; }
+    t = t.parentNode;
+  }
+}
+
+/* ---------- 自填首攻的解析与点评 ---------- */
+function extractKinds(text) {
+  var k = {};
+  if (/同花顺/.test(text)) k.sflush = 1;
+  if (/顺子|连牌|单顺/.test(text) && !k.sflush) k.straight = 1;
+  if (/连对|木板/.test(text)) k.pairs = 1;
+  if (/钢板|连三|双三/.test(text)) k.steel = 1;
+  if (/三带二|三带一对|三带两|三带俩/.test(text)) k.fullhouse = 1;
+  if (/三同张|三张|三个\d|三颗/.test(text)) k.trips = 1;
+  if (/对子|一对|对\d|对[AKQJ]|对王/.test(text)) k.pair = 1;
+  if (/炸|四个|五个|六个|七张|八张/.test(text)) k.bomb = 1;
+  if (/单张|单牌|一张/.test(text)) k.single = 1;
+  if (/大王/.test(text)) k.big = 1;
+  if (/小王/.test(text)) k.small = 1;
+  return k;
+}
+
+function kindName(k) {
+  var m = { sflush: '同花顺', straight: '顺子', pairs: '连对', steel: '钢板', fullhouse: '三带二', trips: '三同张', pair: '对子', bomb: '炸弹', single: '单张', big: '大王', small: '小王' };
+  return m[k] || k;
+}
+
+function reviewCustomOpening(text, quiz) {
+  var mine = extractKinds(text);
+  var rec = quiz.suggestion;
+  var recKinds = extractKinds(rec.recommend + ' ' + rec.reason);
+  var overlap = [];
+  for (var k in mine) if (recKinds[k]) overlap.push(kindName(k));
+  if (overlap.length) {
+    return { cls: 'ok', penalty: 0, text: '✔ 你的首攻「' + text + '」与推荐思路一致（' + overlap.join('、') + '）。' + rec.reason };
+  }
+  if (mine.bomb && !recKinds.bomb) {
+    return { cls: 'mid', penalty: 0.5, text: '△ 你倾向先开炸（「' + text + '」）。本手推荐「' + rec.recommend + '」：' + rec.reason + ' 炸通常留作收牌权或拦关键手更值，除非牌力碾压要抢节奏。' };
+  }
+  if (!mine.bomb && recKinds.bomb) {
+    return { cls: 'mid', penalty: 0.5, text: '△ 你的想法是「' + text + '」，但这手牌推荐果断用炸：「' + rec.recommend + '」。' + rec.reason };
+  }
+  return { cls: 'mid', penalty: 0.5, text: '△ 你的首攻「' + text + '」与推荐不同。推荐「' + rec.recommend + '」，理由：' + rec.reason + ' 若你有明确的读牌依据（对家需求、上下家缺口），你的打法也成立；否则按推荐更稳。' };
+}
+
+/* ---------- 讨论卡片：把整局上下文打包，粘贴给 Kimi 讨论 ---------- */
+function buildDiscussionCard() {
+  var q = state.quiz, ev = q.evalResult, lvl = q.level;
+  var lines = [];
+  lines.push('【掼蛋练习·讨论卡片】');
+  lines.push('打的：' + E.LEVEL_NAMES[lvl] + '（红桃' + E.LEVEL_NAMES[lvl] + '=配⭐）');
+  lines.push('手牌27张：' + q.hand.map(function (c) { return E.cardLabel(c, lvl); }).join(' '));
+  lines.push('引擎评估：' + ev.total + ' 分（' + ev.tierName + '）');
+  for (var i = 0; i < ev.parts.length; i++) {
+    lines.push('  - ' + ev.parts[i].name + '：' + (ev.parts[i].score > 0 ? '+' : '') + ev.parts[i].score);
+  }
+  lines.push('引擎拆解 ' + ev.analysis.hands + ' 手：' + (ev.analysis.structures.join('；') || '无'));
+  var rowDesc = [];
+  var userHands = state.handGroups.length;
+  var r, g;
+  for (r = 0; r < state.rows.length; r++) {
+    if (!state.rows[r].length) continue;
+    var info = E.classifyRow(state.rows[r], lvl);
+    var cardsTxt = state.rows[r].slice().sort(bySvDesc).map(function (c) { return E.cardLabel(c, lvl); }).join(' ');
+    rowDesc.push('行' + (r + 1) + ' [' + (info.label || '未成牌型') + '] ' + cardsTxt);
+    userHands++;
+  }
+  var handRest = [];
+  for (g = 0; g < state.handGroups.length; g++) {
+    handRest.push(state.handGroups[g].cards.map(function (c) { return E.cardLabel(c, lvl); }).join(''));
+  }
+  lines.push('我的理牌：' + (rowDesc.length ? userHands + ' 手 = 手牌剩 ' + state.handGroups.length + ' 组 + 理牌区 ' + rowDesc.length + ' 行' : '（未在理牌区摆牌）'));
+  if (handRest.length) lines.push('  手牌剩余：' + handRest.join(' | '));
+  for (var d = 0; d < rowDesc.length; d++) lines.push('  ' + rowDesc[d]);
+  if (rowDesc.length) {
+    var diff = userHands - ev.analysis.hands;
+    lines.push('【手数差异】我算 ' + userHands + ' 手 vs 引擎 ' + ev.analysis.hands + ' 手（' + (diff > 0 ? '+' : '') + diff + '）');
+  }
+  lines.push('我的答案：牌力自评「' + E.TIER_NAMES[state.my ? state.my.tier : 0] + '」 定位「' + ({ attack: '主攻', flex: '灵活', support: '助攻' }[state.my ? state.my.role : 'flex']) + '」');
+  lines.push('推荐首攻：' + q.suggestion.recommend);
+  lines.push('推荐理由：' + q.suggestion.reason);
+  var dt = document.getElementById('discussText');
+  if (dt && dt.value) lines.push('【我的疑问】' + dt.value);
+  return lines.join('\n');
+}
+
+function copyDiscussion() {
+  var text = buildDiscussionCard();
+  var msg = document.getElementById('copyMsg');
+  function done(ok, how) {
+    if (msg) msg.textContent = ok ? ('已复制（' + how + '），去 Kimi 对话里粘贴即可讨论') : '自动复制失败，请按 Ctrl+A 全选文本框内容手动复制';
+  }
+  function legacyCopy() {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+    document.body.removeChild(ta);
+    done(ok, '兼容模式');
+  }
+  if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      navigator.clipboard.writeText(text).then(function () { done(true, '一键'); }, function () { legacyCopy(); });
+    } catch (e) { legacyCopy(); }
+  } else {
+    legacyCopy();
+  }
+}
+
+/* ---------- 与本地 Kimi 服务（kimi web）实时讨论 ---------- */
+var chat = { port: 0, sessionId: null, busy: false, ready: false, firstSent: false, history: [], mode: 'kimiweb', msgs: [] };
+
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function resetChat() {
+  chat.sessionId = null;
+  chat.busy = false;
+  chat.ready = false;
+  chat.firstSent = false;
+  chat.history = [];
+  chat.msgs = [];
+}
+
+function kimiHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + (localStorage.getItem('gd_kimi_token') || '')
+  };
+}
+
+function kimiBase() { return 'http://127.0.0.1:' + chat.port; }
+
+function probeService(cb) {
+  var ports = [58627, 58628, 58629, 58630];
+  var i = 0;
+  function tryNext() {
+    if (i >= ports.length) { cb(false); return; }
+    var port = ports[i++];
+    fetch('http://127.0.0.1:' + port + '/api/v1/healthz', { method: 'GET' })
+      .then(function (r) { if (r.ok) { chat.port = port; cb(true); } else tryNext(); })
+      ["catch"](function () { tryNext(); });
+  }
+  tryNext();
+}
+
+function setChatUi(statusText, mode) {
+  var st = document.getElementById('chatStatus');
+  var setup = document.getElementById('chatSetup');
+  var box = document.getElementById('chatBox');
+  if (st) st.textContent = statusText;
+  if (setup) setup.style.display = (mode === 'setup') ? 'block' : 'none';
+  if (box) box.style.display = (mode === 'chat') ? 'block' : 'none';
+  if (mode === 'setup') {
+    refreshChatDot('未连接');
+    var cwdEl = document.getElementById('kimiCwd');
+    if (cwdEl && !cwdEl.value) cwdEl.value = localStorage.getItem('gd_kimi_cwd') || 'D:/Kimi/掼蛋陪练';
+    var tk = document.getElementById('kimiToken');
+    if (tk && !tk.value) tk.value = localStorage.getItem('gd_kimi_token') || '';
+    var mk = document.getElementById('msKey');
+    if (mk && !mk.value) mk.value = localStorage.getItem('gd_moonshot_key') || '';
+    var mm = document.getElementById('msModel');
+    if (mm && !mm.value) mm.value = localStorage.getItem('gd_moonshot_model') || 'moonshot-v1-8k';
+    updateChatModeUi();
+  } else if (mode === 'chat') {
+    refreshChatDot('已连接');
+  } else if (mode === 'none') {
+    refreshChatDot('不可用');
+  }
+}
+
+function initChat() {
+  if (typeof fetch === 'undefined') { setChatUi('当前浏览器不支持联网讨论，请用 Edge/Chrome。', 'none'); return; }
+  var mode = currentChatMode();
+  chat.mode = mode;
+  updateChatModeUi();
+  if (mode === 'moonshot') {
+    if (!localStorage.getItem('gd_moonshot_key')) {
+      setChatUi('极速模式：请按下方提示填入 Moonshot API Key（一次即可）。', 'setup');
+      return;
+    }
+    setChatUi('正在检测极速代理…', 'none');
+    fetch('http://127.0.0.1:16888/ping', { method: 'GET' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (j && j.ok) {
+          chat.ready = true;
+          setChatUi('极速模式已就绪（通常 1-3 秒出回答）。', 'chat');
+          replayChatHistory();
+        } else {
+          setChatUi('极速代理没启动：双击「启动极速代理.bat」并保持窗口开着，再点重连。', 'setup');
+        }
+      })
+      ['catch'](function () {
+        setChatUi('极速代理没启动：双击「启动极速代理.bat」并保持窗口开着，再点重连。', 'setup');
+      });
+    return;
+  }
+  setChatUi('正在检测本地 Kimi 服务…', 'none');
+  if (location.protocol !== 'file:') {
+    setChatUi('网络版提示：实时讨论需要电脑本地服务，手机/网络版不可用。用下方"复制讨论卡片"发给 Kimi（手机 Kimi App 或电脑网页版）即可讨论。', 'setup');
+    var b = document.getElementById('chatBox');
+    if (b) b.style.display = 'block';
+    return;
+  }
+  probeService(function (up) {
+    if (!up) {
+      setChatUi('本地服务未启动：请双击文件夹里的「启动讨论服务.bat」（黑窗口保持开着），然后点"重连"。', 'setup');
+      return;
+    }
+    if (!localStorage.getItem('gd_kimi_token')) {
+      setChatUi('服务已启动。把黑窗口里显示的令牌粘到下面，点保存（只需一次）：', 'setup');
+      return;
+    }
+    ensureChatSession(function (ok, why) {
+      if (ok) {
+        chat.ready = true;
+        setChatUi('已连接，可以直接讨论——Kimi 已看到当前牌局。', 'chat');
+        replayChatHistory();
+      } else {
+        setChatUi('连接失败（' + why + '）：令牌可能不对，重新粘贴后点"重连"；或重启服务。', 'setup');
+      }
+    });
+  });
+}
+
+function currentChatMode() {
+  var m = document.getElementById('chatMode');
+  return m ? m.value : (localStorage.getItem('gd_chat_mode') || 'kimiweb');
+}
+
+function updateChatModeUi() {
+  var m = currentChatMode();
+  var ms = document.getElementById('moonshotSetup');
+  if (ms) ms.style.display = (m === 'moonshot') ? 'block' : 'none';
+}
+
+function onChatModeChange() {
+  localStorage.setItem('gd_chat_mode', currentChatMode());
+  chat.ready = false;
+  chat.sessionId = null;
+  initChat();
+}
+
+function saveMsKey() {
+  var k = document.getElementById('msKey'), m = document.getElementById('msModel');
+  if (k && k.value) localStorage.setItem('gd_moonshot_key', k.value.replace(/^\s+|\s+$/g, ''));
+  if (m && m.value) localStorage.setItem('gd_moonshot_model', m.value.replace(/^\s+|\s+$/g, ''));
+  initChat();
+}
+
+function retryChat() {
+  var cwdEl = document.getElementById('kimiCwd');
+  if (cwdEl && cwdEl.value) localStorage.setItem('gd_kimi_cwd', cwdEl.value.replace(/^\s+|\s+$/g, ''));
+  chat.sessionId = null;
+  chat.ready = false;
+  initChat();
+}
+
+function saveToken() {
+  var t = document.getElementById('kimiToken');
+  if (t && t.value) {
+    localStorage.setItem('gd_kimi_token', t.value.replace(/^\s+|\s+$/g, ''));
+    retryChat();
+  }
+}
+
+// 一键诊断：逐步显示卡在哪一环
+function runChatDiag() {
+  var lines = [];
+  function show() {
+    var st = document.getElementById('chatStatus');
+    if (st) {
+      var html = '';
+      for (var i = 0; i < lines.length; i++) html += escHtml(lines[i]) + '<br>';
+      st.innerHTML = html;
+    }
+  }
+  if (typeof fetch === 'undefined') {
+    lines.push('1) 浏览器联网功能：缺失（浏览器太老）');
+    lines.push('→ 请右键 trainer.html → 打开方式 → 选 Edge 或 Chrome');
+    show();
+    return;
+  }
+  lines.push('1) 浏览器联网功能：正常');
+  probeService(function (up) {
+    lines.push(up ? ('2) 本地服务：在线（端口 ' + chat.port + '）') : '2) 本地服务：没找到 → 双击「启动讨论服务.bat」并保持黑窗口开着');
+    if (!up) { show(); return; }
+    var tk = localStorage.getItem('gd_kimi_token');
+    lines.push(tk ? ('3) 令牌：已保存（' + tk.length + ' 个字符）') : '3) 令牌：还没保存 → 粘到上方框里点保存');
+    if (!tk) { show(); return; }
+    chat.sessionId = null;
+    ensureChatSession(function (ok, why) {
+      if (ok) {
+        lines.push('4) 建会话：成功，可以讨论了');
+        chat.ready = true;
+        setChatUi('已连接，可以直接讨论——Kimi 已看到当前牌局。', 'chat');
+      } else {
+        lines.push('4) 建会话：被拒（' + why + '）→ 令牌可能复制错了，重新双击 bat 让它自动复制，再粘一次');
+      }
+      show();
+    });
+  });
+}
+
+function ensureChatSession(cb) {
+  if (chat.sessionId) { cb(true); return; }
+  var cwd = localStorage.getItem('gd_kimi_cwd') || 'D:/Kimi/掼蛋陪练';
+  fetch(kimiBase() + '/api/v1/sessions', {
+    method: 'POST',
+    headers: kimiHeaders(),
+    body: JSON.stringify({
+      title: 'guandan-discuss',
+      metadata: { cwd: cwd },
+      agent_config: {
+        model: 'kimi-code/kimi-for-coding-highspeed',
+        thinking: 'low',
+        permission_mode: 'auto'
+      }
+    })
+  }).then(function (r) { return r.json(); }).then(function (res) {
+    if (res.code === 0 && res.data && res.data.id) { chat.sessionId = res.data.id; cb(true); }
+    else cb(false, (res && res.msg) || '创建会话被拒');
+  })["catch"](function (e) { cb(false, '网络错误'); });
+}
+
+function buildChatContext() {
+  return '你是我的掼蛋教练。先看清下面这局牌，之后我会和你讨论。要求：直接回答，不要复述我的问题，不要调用任何工具（不要读文件、不要执行命令），就牌论牌、简洁（120字内优先）。\n\n' + buildDiscussionCard();
+}
+
+function appendChatLine(who, text, cls, skipHistory) {
+  var log = document.getElementById('chatLog');
+  if (!log) return null;
+  var div = document.createElement('div');
+  div.className = 'chatline ' + cls;
+  div.innerHTML = '<b>' + escHtml(who) + '：</b>' + escHtml(text).replace(/\n/g, '<br>');
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  if (!skipHistory) chat.history.push({ who: who, text: text, cls: cls });
+  return div;
+}
+
+function replayChatHistory() {
+  var log = document.getElementById('chatLog');
+  if (!log) return;
+  log.innerHTML = '';
+  for (var i = 0; i < chat.history.length; i++) {
+    var h = chat.history[i];
+    appendChatLine(h.who, h.text, h.cls, true);
+  }
+}
+
+function sendChat() {
+  var input = document.getElementById('chatInput');
+  var text = (input ? input.value : '').replace(/^\s+|\s+$/g, '');
+  if (!text) return;
+  if (chat.busy) return;
+  if (!chat.ready) { initChat(); appendChatLine('系统', '服务未就绪，请按上方提示完成配置。', 'sys'); return; }
+  if (chat.mode === 'moonshot') { sendChatMoonshot(text, input); return; }
+  chat.busy = true;
+  appendChatLine('我', text, 'user');
+  input.value = '';
+  var payload = chat.firstSent ? text : (chat.firstSent = true, buildChatContext() + '\n\n【我的第一个问题】' + text);
+  fetch(kimiBase() + '/api/v1/sessions/' + chat.sessionId + '/prompts', {
+    method: 'POST',
+    headers: kimiHeaders(),
+    body: JSON.stringify({ content: [{ type: 'text', text: payload }] })
+  }).then(function (r) { return r.json(); }).then(function (res) {
+    if (res.code !== 0) {
+      appendChatLine('系统', '发送失败：' + ((res && res.msg) || '未知'), 'err');
+      chat.busy = false;
+      return;
+    }
+    pollChatReply();
+  })["catch"](function () {
+    appendChatLine('系统', '发送失败：本地服务无响应（窗口被关了？）。', 'err');
+    chat.busy = false;
+  });
+}
+
+// 极速模式：Moonshot 聊天 API，一次请求直接返回，无需轮询
+function sendChatMoonshot(text, input) {
+  chat.busy = true;
+  appendChatLine('我', text, 'user');
+  input.value = '';
+  if (chat.msgs.length === 0) chat.msgs.push({ role: 'system', content: buildChatContext() });
+  chat.msgs.push({ role: 'user', content: text });
+  var thinkingEl = appendChatLine('Kimi', '思考中…', 'kimi');
+  fetch('http://127.0.0.1:16888/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      apiKey: localStorage.getItem('gd_moonshot_key') || '',
+      model: localStorage.getItem('gd_moonshot_model') || 'moonshot-v1-8k',
+      messages: chat.msgs
+    })
+  }).then(function (r) { return r.json(); }).then(function (res) {
+    var reply = '';
+    if (res.choices && res.choices[0] && res.choices[0].message) reply = res.choices[0].message.content || '';
+    if (!reply) reply = '（出错：' + ((res.error && res.error.message) || res.error || res.msg || '未知') + '）';
+    if (thinkingEl.parentNode) thinkingEl.innerHTML = '<b>Kimi：</b>' + escHtml(reply).replace(/\n/g, '<br>');
+    chat.history.push({ who: 'Kimi', text: reply, cls: 'kimi' });
+    chat.msgs.push({ role: 'assistant', content: reply });
+    chat.busy = false;
+  })["catch"](function () {
+    if (thinkingEl.parentNode) thinkingEl.innerHTML = '<b>Kimi：</b>（请求失败：代理窗口关了？重新双击「启动极速代理.bat」）';
+    chat.busy = false;
+  });
+}
+
+function pollChatReply() {
+  var thinkingEl = appendChatLine('Kimi', '思考中…', 'kimi');
+  var ticks = 0;
+  function setThinking(html) {
+    if (thinkingEl.parentNode) thinkingEl.innerHTML = html;
+  }
+  function tick() {
+    ticks++;
+    if (ticks > 120) {
+      setThinking('<b>Kimi：</b>这次想久了（可能排队中），再发一次或换个问法试试。');
+      chat.busy = false;
+      return;
+    }
+    fetch(kimiBase() + '/api/v1/sessions/' + chat.sessionId + '/prompts', { headers: kimiHeaders() })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        var active = res.data && res.data.active;
+        if (!active) { loadFinalReply(thinkingEl); return; }
+        if (active.status === 'blocked') {
+          setThinking('<b>Kimi：</b>请求被拦住了（工具审批）。重发一次即可；若反复出现，重启讨论服务。');
+          chat.busy = false;
+          return;
+        }
+        if (active.status === 'failed') {
+          setThinking('<b>Kimi：</b>处理失败，换个问法试试，或点"重连"。');
+          chat.busy = false;
+          return;
+        }
+        var txt = '', think = '';
+        for (var i = 0; i < active.content.length; i++) {
+          var c = active.content[i];
+          if (c.type === 'text') txt += c.text;
+          else if (c.type === 'thinking' && c.thinking) think += c.thinking;
+        }
+        if (thinkingEl.parentNode) {
+          if (txt) {
+            thinkingEl.innerHTML = '<b>Kimi：</b>' + escHtml(txt).replace(/\n/g, '<br>');
+          } else if (think) {
+            var snippet = think.length > 120 ? think.substring(0, 120) + '…' : think;
+            thinkingEl.innerHTML = '<b>Kimi</b> 💭 ' + escHtml(snippet).replace(/\n/g, '<br>');
+          } else {
+            thinkingEl.innerHTML = '<b>Kimi：</b>思考中…';
+          }
+        }
+        setTimeout(tick, 900);
+      })
+      ["catch"](function () { setTimeout(tick, 2000); });
+  }
+  tick();
+}
+
+function loadFinalReply(el) {
+  fetch(kimiBase() + '/api/v1/sessions/' + chat.sessionId + '/messages?page_size=5', { headers: kimiHeaders() })
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      var items = (res.data && res.data.items) || [];
+      var txt = '';
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].role === 'assistant') {
+          var cs = items[i].content || [];
+          for (var j = 0; j < cs.length; j++) if (cs[j].type === 'text') txt += cs[j].text;
+          if (txt) break;
+        }
+      }
+      if (el.parentNode) el.innerHTML = '<b>Kimi：</b>' + (txt ? escHtml(txt).replace(/\n/g, '<br>') : '（无回复，请重发）');
+      chat.history.push({ who: 'Kimi', text: txt || '（无回复）', cls: 'kimi' });
+      chat.busy = false;
+    })
+    ["catch"](function () {
+      if (el.parentNode) el.innerHTML = '<b>Kimi：</b>（回复获取失败，请点重连）';
+      chat.busy = false;
+    });
+}
+
+/* ---------- 常驻讨论面板（理牌/答题/复盘全程可用，可折叠） ---------- */
+function renderDiscussionPanel(app) {
+  var wrap = el('div', 'panel');
+  wrap.innerHTML =
+    '<div class="rowhead" style="cursor:pointer" onclick="toggleChat()">' +
+    (state.chatOpen ? '▼' : '▶') + ' 💬 讨论区<span id="chatStatusDot" class="muted" style="margin-left:8px">（未连接）</span></div>' +
+    '<div id="chatBody" style="display:' + (state.chatOpen ? 'block' : 'none') + ';margin-top:6px">' +
+    '<div class="muted">理牌、答题过程随时问，Kimi 能看到当前牌局。首次使用需启动本地服务并粘贴一次令牌。</div>' +
+    '<div id="chatStatus" class="muted" style="margin:6px 0">正在检测本地 Kimi 服务…</div>' +
+    '<div id="chatSetup" style="display:none;margin:8px 0">' +
+    '<div class="muted" style="margin-bottom:6px">① 双击文件夹里的「启动讨论服务.bat」（黑窗口不要关）<br>' +
+    '② 把黑窗口里显示的令牌（一长串字符）粘到下面，点保存：</div>' +
+    '<input type="text" id="kimiToken" placeholder="粘贴令牌" style="width:340px;font-size:13px;padding:6px;border:1px solid #aaa;border-radius:6px">' +
+    '<button type="button" onclick="saveToken()" style="margin-left:6px">保存</button>' +
+    '<button type="button" onclick="retryChat()" style="margin-left:4px">重连</button>' +
+    '<button type="button" onclick="runChatDiag()" style="margin-left:4px">一键诊断</button>' +
+    '<div class="muted" style="margin-top:6px">工作目录（一般不用改）：<input type="text" id="kimiCwd" style="width:260px;font-size:12px;padding:4px;border:1px solid #aaa;border-radius:4px"></div>' +
+    '<div class="muted" style="margin-top:6px">讨论模式：' +
+    '<select id="chatMode" onchange="onChatModeChange()" style="font-size:13px;padding:4px">' +
+    '<option value="kimiweb">本地 Kimi Code 服务（免费，约10-30秒）</option>' +
+    '<option value="moonshot">极速聊天（1-3秒，需 Moonshot Key）</option>' +
+    '</select></div>' +
+    '<div id="moonshotSetup" style="display:none;margin-top:6px">' +
+    '<div class="muted">① 打开 platform.moonshot.cn 注册登录 → 「API Key 管理」→ 新建并复制（sk- 开头，平台有免费额度）<br>' +
+    '② 粘到下面点保存；③ 双击「启动极速代理.bat」保持开着：</div>' +
+    '<input type="text" id="msKey" placeholder="sk-..." style="width:340px;font-size:13px;padding:6px;border:1px solid #aaa;border-radius:6px;margin-top:4px">' +
+    '<div class="muted" style="margin-top:4px">模型：<input type="text" id="msModel" style="width:200px;font-size:12px;padding:4px;border:1px solid #aaa;border-radius:4px">（默认 moonshot-v1-8k，可改 kimi-k2 系列）</div>' +
+    '<button type="button" onclick="saveMsKey()" style="margin-top:4px">保存 Key</button>' +
+    '</div></div>' +
+    '<div id="chatBox" style="display:none">' +
+    '<div id="chatLog" style="max-height:300px;overflow:auto;background:#fff;border:1px solid #ccc;border-radius:8px;padding:10px;font-size:14px;line-height:1.6"></div>' +
+    '<div style="display:flex;gap:8px;margin-top:8px;max-width:660px">' +
+    '<input type="text" id="chatInput" placeholder="如：这个牌该摆炸弹还是拆开？/ 我这牌明明 9 手，你为什么算 10 手？" style="flex:1;font-size:14px;padding:8px;border:1px solid #aaa;border-radius:6px" onkeydown="if(event.keyCode===13)sendChat()" oninput="state.chatDraft=this.value">' +
+    '<button type="button" onclick="sendChat()">发送</button>' +
+    '</div>' +
+    '<div style="margin-top:8px"><button type="button" onclick="copyDiscussion()">复制讨论卡片（备用）</button><span id="copyMsg" class="muted"></span></div>' +
+    '</div>' +
+    '</div>';
+  app.appendChild(wrap);
+  if (state.chatOpen) replayChatHistory();
+  var ci = document.getElementById('chatInput');
+  if (ci && state.chatDraft) ci.value = state.chatDraft;
+  var modeSel = document.getElementById('chatMode');
+  if (modeSel) modeSel.value = localStorage.getItem('gd_chat_mode') || 'kimiweb';
+  var mk = document.getElementById('msKey');
+  if (mk && !mk.value) mk.value = localStorage.getItem('gd_moonshot_key') || '';
+  var mm = document.getElementById('msModel');
+  if (mm && !mm.value) mm.value = localStorage.getItem('gd_moonshot_model') || 'moonshot-v1-8k';
+  updateChatModeUi();
+}
+
+function toggleChat() {
+  state.chatOpen = !state.chatOpen;
+  var body = document.getElementById('chatBody');
+  var input = document.getElementById('chatInput');
+  if (input) state.chatDraft = input.value;
+  if (body) body.style.display = state.chatOpen ? 'block' : 'none';
+  if (state.chatOpen) {
+    replayChatHistory();
+    var ci = document.getElementById('chatInput');
+    if (ci && state.chatDraft) ci.value = state.chatDraft;
+    var cb = document.getElementById('chatBox');
+    if (cb && cb.style.display === 'none') initChat();
+  }
+}
+
+function refreshChatDot(text) {
+  var dot = document.getElementById('chatStatusDot');
+  if (dot) dot.textContent = '（' + text + '）';
+}
+
+function groupedHtml(hand) {
+  var lvl = state.quiz.level;
+  var groups = [], i, sv, g;
+  for (i = 0; i < hand.length; i++) {
+    sv = E.sortValue(hand[i].v, lvl);
+    g = null;
+    for (var j = 0; j < groups.length; j++) if (groups[j].sv === sv) { g = groups[j]; break; }
+    if (!g) { g = { sv: sv, cards: [] }; groups.push(g); }
+    g.cards.push(hand[i]);
+  }
+  groups.sort(function (a, b) { return b.sv - a.sv; });
+  // 牌堆式流式布局：同值牌纵向叠成一个 pile，pile 之间自动换行，任何宽度都完整显示
+  var html = '<div class="cards" style="background:#0f5132;border-radius:12px;padding:10px">';
+  for (var gi = 0; gi < groups.length; gi++) {
+    html += '<span class="pile">';
+    for (var li = 0; li < groups[gi].cards.length; li++) html += cardHtml(groups[gi].cards[li]);
+    html += '</span>';
+  }
+  return html + '</div>';
+}
+
+function stepbarHtml() {
+  var names = ['① 理牌', '② 评估与决策', '③ 复盘'];
+  var s = '<div class="stepbar">';
+  for (var i = 0; i < 3; i++) s += '<span class="' + (state.step === i + 1 ? 'on' : '') + '">' + names[i] + '</span>';
+  return s + '</div>';
+}
+
+function render() {
+  var app = document.getElementById('app');
+  app.innerHTML = '';
+  if (state.view === 'train') renderTrain(app);
+  else if (state.view === 'journal') renderJournal(app);
+  else renderSelftest(app);
+}
+
+function renderTrain(app) {
+  if (!state.quiz) {
+    var p = el('div', 'panel', '<h2>开始练习</h2><div class="muted">' +
+      '点右上角 <b>「发一副新牌」</b> 开始。流程：<br>' +
+      '① 看 27 张乱牌，<b>自己先理牌</b>，想清楚牌力与打法；<br>' +
+      '② 对照标准理牌，回答三个问题（牌力评估、定位、首攻）；<br>' +
+      '③ 复盘：五维牌力分析 + 标准打法 + 你的答案对照。<br>' +
+      '实体牌演练：自己抓 27 张牌理好后，对着屏幕上的标准答案自查，或拍照发给 Kimi 点评。</div>');
+    app.appendChild(p);
+    return;
+  }
+
+  var q = state.quiz, ev = q.evalResult, sug = q.suggestion;
+
+  if (state.step === 1) {
+    var p1 = el('div', 'panel');
+    p1.innerHTML = '<h2>第 ① 步：抓牌理牌（打' + E.LEVEL_NAMES[q.level] + '，红桃' + E.LEVEL_NAMES[q.level] + '=配牌⭐） ' +
+      '<span id="drawCnt" style="font-size:14px;color:#666">已抓 0/27</span> <span id="lastDraw" style="font-size:13px;color:#888"></span> <span id="drawAllHint" style="font-size:13px;color:#2e8b57"></span></h2>' +
+      '<div class="muted">像真实抓牌：点击下面的<b>蓝色背面牌</b>抓牌，牌会翻开并自动插进你的"手牌"。手牌按 <b>大王→小王→级牌→A→K→…→2</b> 排列，<b>同点数自动叠放</b>——叠几层就是几张，叠到 4 层就是炸。抓完（或边抓边理）把炸弹、同花顺、顺子等成型牌型<b>点入手牌区下方的理牌区</b>一行行摆好，每行会自动校验牌型。</div>';
+    var dk = el('div', 'deckwrap', '');
+    var hd = el('div', 'handzone', '');
+    var rz = el('div', 'rowszone', '');
+    p1.appendChild(dk);
+    p1.appendChild(hd);
+    p1.appendChild(rz);
+    deckZoneEl = dk;
+    renderDeckArea(dk);
+    renderHandZone(hd);
+    renderRows(rz);
+    dk.onclick = onDeckClick;
+    hd.onclick = onHandClick;
+    rz.onclick = onRowsClick;
+    var r1 = el('div', 'btnrow');
+    var b1 = el('button', '', '我理好了，进入评估');
+    b1.onclick = function () { state.step = 2; render(); window.scrollTo(0, 0); };
+    var bReset = el('button', 'alt', '重新抓牌');
+    bReset.onclick = function () { resetDraw(); };
+    var bClear = el('button', 'alt', '清空理牌区');
+    bClear.onclick = function () { clearAllRows(); };
+    r1.appendChild(b1);
+    r1.appendChild(bReset);
+    r1.appendChild(bClear);
+    r1.appendChild(el('span', '',
+      '<span id="dealHint" style="font-size:16px;font-weight:bold;color:#0f5132;align-self:center;margin-left:10px">理牌 0 秒</span>'));
+    p1.appendChild(r1);
+    updateDealHint(0);
+    p1.appendChild(r1);
+    app.appendChild(p1);
+    refreshDrawCount();
+  }
+
+  if (state.step === 2) {
+    var p2 = el('div', 'panel');
+    p2.innerHTML = '<h2>第 ② 步：评估与决策</h2>' + stepbarHtml() +
+      '<div class="muted">左边是标准理牌结果（供你核对自己理的牌）。右边回答三个问题——先凭自己的判断作答。</div>';
+    var cols = el('div', 'cols');
+    var left = el('div', '', '<div class="grouptitle">整牌对照（与你手牌同序：大→小，同值叠放）：</div>' + groupedHtml(q.hand));
+    var right = el('div');
+    right.innerHTML =
+      '<form id="f">' +
+      '<label class="q">1）这手牌的牌力，你评为？</label>' +
+      '<select name="tier"><option value="4">强攻（≥12分，争上游）</option><option value="3">主攻（8~11.5分，可攻可守）</option><option value="2" selected>均衡（5~7.5分，观望）</option><option value="1">辅助（2~4.5分，送对家）</option><option value="0">弱辅助（＜2分，收缩防守）</option></select>' +
+      '<label class="q">2）你的定位是？</label>' +
+      '<select name="role"><option value="attack">主攻：自己争上游</option><option value="flex">灵活：看牌权再定</option><option value="support">助攻：送对家、压下家</option></select>' +
+      '<label class="q">3）第一手你出什么？</label>' +
+      sug.options.map(function (o, i) {
+        return '<label class="opt"><input type="radio" name="opt" value="' + i + '"' + (i === 0 ? ' checked' : '') + '> ' + o.text + '</label>';
+      }).join('') +
+      '<label class="opt"><input type="radio" name="opt" value="custom"> 以上都不是，我自己写：</label>' +
+      '<input type="text" name="customText" id="customText" placeholder="如：先出对子99探探路 / 三带二333带44 / 留炸等下家" style="display:none;margin:2px 0 4px 26px;max-width:480px;">' +
+      '</form>';
+    var r2 = el('div', 'btnrow');
+    var b2 = el('button', '', '提交，看复盘');
+    // 选了"我自己写"时展开输入框
+    right.querySelectorAll('input[name="opt"]').forEach(function (r) {
+      r.onchange = function () {
+        var ct = right.querySelector('#customText');
+        if (ct) ct.style.display = (fd0_getOpt() === 'custom') ? 'block' : 'none';
+      };
+    });
+    function fd0_getOpt() {
+      var rs = right.querySelectorAll('input[name="opt"]');
+      for (var i = 0; i < rs.length; i++) if (rs[i].checked) return rs[i].value;
+      return '0';
+    }
+    b2.onclick = function () {
+      var fd = document.getElementById('f');
+      var optVal = fd0_getOpt();
+      state.my = {
+        tier: parseInt(fd.elements.tier.value, 10),
+        role: fd.elements.role.value
+      };
+      if (optVal === 'custom') {
+        state.my.custom = fd.elements.customText.value || '（空）';
+      } else {
+        state.my.opt = parseInt(optVal, 10);
+      }
+      state.step = 3;
+      render();
+      window.scrollTo(0, 0);
+    };
+    var b2b = el('button', 'alt', '返回重新理牌');
+    b2b.onclick = function () { state.step = 1; render(); };
+    r2.appendChild(b2);
+    r2.appendChild(b2b);
+    right.appendChild(r2);
+    cols.appendChild(left);
+    cols.appendChild(right);
+    p2.appendChild(cols);
+    app.appendChild(p2);
+  }
+
+  if (state.step === 3) {
+    var p3 = el('div', 'panel');
+    var my = state.my;
+    var tierGap = Math.abs(my.tier - ev.tier);
+    var vTier = tierGap === 0 ? ['ok', '✔ 牌力判断准确'] : tierGap === 1 ? ['mid', '△ 牌力偏差一档：你评「' + E.TIER_NAMES[my.tier] + '」，标准为「' + ev.tierName + '」（' + ev.total + '分）'] : ['bad', '✘ 牌力偏差较大：你评「' + E.TIER_NAMES[my.tier] + '」，标准为「' + ev.tierName + '」（' + ev.total + '分）'];
+    var stdRole = ev.tier >= 3 ? 'attack' : ev.tier === 2 ? 'flex' : 'support';
+    var roleName = { attack: '主攻', flex: '灵活', support: '助攻' };
+    var vRole = my.role === stdRole ? ['ok', '✔ 定位判断准确（' + roleName[stdRole] + '）'] : ['bad', '✘ 定位有偏差：你选「' + roleName[my.role] + '」，建议「' + roleName[stdRole] + '」'];
+    var vOpt, optMiss;
+    if (my.custom !== undefined) {
+      var rv = reviewCustomOpening(String(my.custom), q);
+      vOpt = [rv.cls, rv.text];
+      optMiss = rv.penalty;
+    } else {
+      var myOpt = sug.options[my.opt];
+      vOpt = myOpt.correct ? ['ok', '✔ 首攻选择合理'] : ['bad', '✘ 首攻可改进：你选「' + myOpt.text + '」，推荐「' + sug.recommend + '」'];
+      optMiss = myOpt.correct ? 0 : 1;
+    }
+    var wrongCount = (tierGap >= 2 ? 1 : 0) + (my.role === stdRole ? 0 : 1) + optMiss + (tierGap === 1 ? 0.5 : 0);
+
+    p3.innerHTML = '<h2>第 ③ 步：复盘</h2>' + stepbarHtml();
+
+    var head = el('div', '');
+    head.innerHTML = '<span class="score-big">' + ev.total + ' 分</span><span class="badge">' + ev.tierName + '</span>' +
+      '<div class="formula">记点规则：大王3 / 小王2 / 红心配2.5 / 级牌1.5 / A1（打A时A按级牌计）/ 同花顺5 / 炸弹 4炸3、5炸4、6炸及以上(含7/8炸)一律6 / 四大天王6 / 手数(7−轮)×1.5；A和级牌进炸后不再重复计。<br>档位线：≥12 主攻上游 · 8~11.5 可攻可守 · 5~7.5 观望 · 2~4.5 辅助 · &lt;2 弱辅助</div>';
+    ev.parts.forEach(function (p) {
+      var cls = p.score >= 0 ? 'pos' : 'neg';
+      var sign = p.score > 0 ? '+' : '';
+      head.innerHTML += '<div class="partrow"><span>' + p.name + '</span><b class="' + cls + '">' + sign + p.score + '</b></div>';
+    });
+    p3.appendChild(head);
+
+    var cols3 = el('div', 'cols');
+    var lf = el('div');
+    lf.innerHTML = '<div class="grouptitle">牌面事实</div><ul class="facts">' +
+      ev.facts.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>' +
+      '<div class="grouptitle">打法建议</div><ul class="advice">' +
+      ev.advice.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>';
+    if (ev.analysis.structures.length) {
+      lf.innerHTML += '<div class="grouptitle">引擎拆解的牌型（' + ev.analysis.hands + ' 手）</div><ul class="facts">' +
+        ev.analysis.structures.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>' +
+        (ev.analysis.wildNote ? '<div class="muted">' + ev.analysis.wildNote + '</div>' : '');
+    }
+    var rt = el('div');
+    rt.innerHTML = '<div class="grouptitle">你的答案对照</div>' +
+      '<div class="verdict ' + vTier[0] + '">' + vTier[1] + '</div>' +
+      '<div class="verdict ' + vRole[0] + '">' + vRole[1] + '</div>' +
+      '<div class="verdict ' + vOpt[0] + '">' + vOpt[1] + '</div>' +
+      '<div class="grouptitle" style="margin-top:14px">推荐首攻</div>' +
+      '<div class="verdict ok">' + sug.recommend + '</div><div class="muted">' + sug.reason + '</div>';
+    cols3.appendChild(lf);
+    cols3.appendChild(rt);
+    p3.appendChild(cols3);
+
+    // 手数对比（复盘专属信息）
+    var userHands = state.handGroups.length, activeRows = 0;
+    for (var hr = 0; hr < state.rows.length; hr++) if (state.rows[hr].length) activeRows++;
+    userHands += activeRows;
+    var diffHtml;
+    if (activeRows > 0) {
+      var diff = userHands - ev.analysis.hands;
+      var diffCls = diff === 0 ? 'ok' : 'mid';
+      var diffNote = diff === 0 ? '与引擎一致' :
+        (diff < 0 ? '你比引擎少 ' + (-diff) + ' 手——你可能用了配牌优化或更激进的组合（引擎是保守贪心拆解）' :
+          '你比引擎多 ' + diff + ' 手——引擎可能把某些牌组合成了你没想到的牌型');
+      diffHtml = '<div class="grouptitle" style="margin-top:14px">手数对比</div>' +
+        '<div class="verdict ' + diffCls + '">你算 ' + userHands + ' 手（手牌剩 ' + state.handGroups.length + ' 组 + 理牌区 ' + activeRows + ' 行）vs 引擎 ' + ev.analysis.hands + ' 手。' + diffNote + '。</div>';
+    } else {
+      diffHtml = '<div class="verdict mid">你未在理牌区摆牌，无法对比手数。下次试试把手牌在理牌区摆成型，再和引擎的 ' + ev.analysis.hands + ' 手对比。</div>';
+    }
+    p3.appendChild(el('div', '', diffHtml));
+
+    var r3 = el('div', 'btnrow');
+    var bBack = el('button', 'alt', '返回重新理牌');    bBack.onclick = function () { state.step = 1; render(); window.scrollTo(0, 0); };
+    var bSave = el('button', '', state.savedThisHand ? '已收藏到错题本' : '收藏到错题本');
+    bSave.disabled = state.savedThisHand;
+    bSave.onclick = function () { saveJournal(wrongCount); state.savedThisHand = true; bSave.disabled = true; bSave.textContent = '已收藏到错题本'; };
+    var bNext = el('button', '', '再来一手');
+    bNext.onclick = function () { newHand(); };
+    r3.appendChild(bBack);
+    r3.appendChild(bSave);
+    r3.appendChild(bNext);
+    p3.appendChild(r3);
+    app.appendChild(p3);
+  }
+
+  // 常驻讨论面板：理牌/答题/复盘全程可用
+  renderDiscussionPanel(app);
+  setTimeout(initChat, 50);
+  if (state.step === 1) startDealTimer(); else stopDealTimer();
+}
+
+/* ---------- 错题本 ---------- */
+var JKEY = 'gd_journal_v1';
+function loadJournal() {
+  try { return JSON.parse(localStorage.getItem(JKEY) || '[]'); } catch (e) { return []; }
+}
+
+// 从错题本数据推导练习统计（答过评估的局才算）
+function journalStats(j) {
+  var rated = 0, tierOk = 0, roleOk = 0, wrongSum = 0, wrongN = 0;
+  for (var i = 0; i < j.length; i++) {
+    var it = j[i];
+    if (!it.my) continue;
+    rated++;
+    var stdTier = it.total >= 12 ? 4 : it.total >= 8 ? 3 : it.total >= 5 ? 2 : it.total >= 2 ? 1 : 0;
+    if (Math.abs((it.my.tier || 0) - stdTier) === 0) tierOk++;
+    var stdRole = stdTier >= 3 ? 'attack' : stdTier === 2 ? 'flex' : 'support';
+    if (it.my.role === stdRole) roleOk++;
+    if (typeof it.wrongCount === 'number') { wrongSum += it.wrongCount; wrongN++; }
+  }
+  return { rated: rated, tierOk: tierOk, roleOk: roleOk, avgWrong: wrongN ? wrongSum / wrongN : 0 };
+}
+function saveJournal(wrongCount) {
+  var q = state.quiz, ev = q.evalResult, my = state.my;
+  var j = loadJournal();
+  j.unshift({
+    ts: Date.now(), level: q.level,
+    hand: q.hand, wrongCount: wrongCount,
+    my: my, total: ev.total, tierName: ev.tierName
+  });
+  try { localStorage.setItem(JKEY, JSON.stringify(j)); } catch (e) { alert('保存失败：浏览器存储已满'); }
+}
+
+function renderJournal(app) {
+  var j = loadJournal();
+  var p = el('div', 'panel');
+  p.innerHTML = '<h2>错题本（' + j.length + ' 条）</h2>';
+  if (j.length) {
+    var stats = journalStats(j);
+    var pct = function (x) { return stats.rated ? Math.round(100 * x / stats.rated) + '%' : '—'; };
+    p.innerHTML += '<div class="verdict ok" style="max-width:640px">练习统计：共练 <b>' + stats.rated + '</b> 局并评估 · 收藏 ' + j.length +
+      ' 条 · 平均每局偏差 <b>' + stats.avgWrong.toFixed(1) + '</b><br>' +
+      '牌力判断准确率 <b>' + pct(stats.tierOk) + '</b> · 定位准确率 <b>' + pct(stats.roleOk) + '</b>' +
+      (stats.tierOk < stats.rated * 0.6 ? '<br>提示：牌力判断常偏差，建议先手动算一遍记点（王/配/级牌/A/炸/手数）再对照。' : '') +
+      '</div>';
+  }
+  if (!j.length) {
+    p.innerHTML += '<div class="muted">还没有收藏。训练中复盘时点「收藏到错题本」，之后可以在这里重考。</div>';
+  } else {
+    var tb = '<table class="journal"><tr><th>时间</th><th>打的</th><th>偏差</th><th>我的定位</th><th>标准</th><th>操作</th></tr>';
+    j.forEach(function (it, idx) {
+      var roleName = { attack: '主攻', flex: '灵活', support: '助攻' };
+      var d = new Date(it.ts);
+      var dt = d.getMonth() + 1 + '/' + d.getDate() + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+      tb += '<tr><td>' + dt + '</td><td>打' + E.LEVEL_NAMES[it.level] + '</td><td>' + it.wrongCount + '</td>' +
+        '<td>' + E.TIER_NAMES[it.my.tier] + ' / ' + roleName[it.my.role] + '</td>' +
+        '<td>' + it.tierName + '（' + it.total + '分）</td>' +
+        '<td><button data-re="' + idx + '">重考</button><button class="del" data-del="' + idx + '">删除</button></td></tr>';
+    });
+    tb += '</table>';
+    p.innerHTML += tb;
+    var rr = el('div', 'btnrow');
+    var bc = el('button', 'warn', '清空错题本');
+    bc.onclick = function () { if (confirm('确定清空全部 ' + loadJournal().length + ' 条记录？')) { localStorage.removeItem(JKEY); render(); } };
+    rr.appendChild(bc);
+    p.appendChild(rr);
+  }
+  app.appendChild(p);
+  qa('button[data-re]', p).forEach(function (b) {
+    b.onclick = function () {
+      var it = loadJournal()[parseInt(b.dataset.re, 10)];
+      newHand(it.level, it.hand);
+    };
+  });
+  qa('button[data-del]', p).forEach(function (b) {
+    b.onclick = function () {
+      var arr = loadJournal();
+      arr.splice(parseInt(b.dataset.del, 10), 1);
+      localStorage.setItem(JKEY, JSON.stringify(arr));
+      render();
+    };
+  });
+}
+
+/* ---------- 自检 ---------- */
+function renderSelftest(app) {
+  var p = el('div', 'panel');
+  p.innerHTML = '<h2>引擎自检</h2><div class="muted">随机发 3000 手牌，检查牌数、重复、评估合法性，并输出分数与档位分布。怀疑结果异常时点一下。</div>';
+  var r = el('div', 'btnrow');
+  var b = el('button', '', '运行自检');
+  var out = el('pre', 'selftest', '（尚未运行）');
+  b.onclick = function () { out.textContent = '运行中…'; setTimeout(function () { out.textContent = E.selfTest(3000); }, 30); };
+  r.appendChild(b);
+  p.appendChild(r);
+  p.appendChild(out);
+  app.appendChild(p);
+}
+
+render();
+</script>
+</body>
+</html>
