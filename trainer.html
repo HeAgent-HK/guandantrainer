@@ -23,7 +23,7 @@
   .stepbar span { padding: 5px 14px; border-radius: 20px; background: #ddd; font-size: 13px; color: #555; }
   .stepbar span.on { background: #0f5132; color: #fff; font-weight: bold; }
   .cards { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
-  .card { display: inline-block; min-width: 44px; text-align: center; padding: 8px 6px; border-radius: 6px; background: #fff; border: 1px solid #bbb; font-weight: bold; font-size: 15px; box-shadow: 1px 1px 2px rgba(0,0,0,.15); }
+  .card { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; height: 52px; min-width: 44px; text-align: center; padding: 8px 6px; border-radius: 6px; background: #fff; border: 1px solid #bbb; font-weight: bold; font-size: 15px; box-shadow: 1px 1px 2px rgba(0,0,0,.15); }
   .card.red { color: #d40000; }
   .card.joker { color: #333; }
   .card.wild { border: 2px dashed #e69100; background: #fff8e1; }
@@ -39,14 +39,14 @@
   .board .slottitle { font-size: 13px; color: #0a3a22; font-weight: bold; margin-bottom: 6px; }
   /* ---- 抓牌区与手牌区 ---- */
   .deckwrap { background: #0a3a22; border-radius: 12px; padding: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
-  .cardback { width: 44px; height: 64px; background: #164a7c; border: 2px solid #e8e8e8; border-radius: 6px; cursor: pointer; color: #fff; font-size: 20px; font-weight: bold; display: inline-block; text-align: center; line-height: 60px; -ms-user-select: none; user-select: none; }
+  .cardback { width: 44px; height: 52px; background: #164a7c; border: 2px solid #e8e8e8; border-radius: 6px; cursor: pointer; color: #fff; font-size: 20px; font-weight: bold; display: inline-block; text-align: center; line-height: 48px; -ms-user-select: none; user-select: none; }
   .cardback:hover { background: #2a5f96; }
   .handzone { position: relative; margin-top: 12px; background: #0f5132; border-radius: 12px; padding: 12px 10px; overflow: hidden; min-height: 96px; }
   .card.newin { animation: cardin .3s ease; }
   @keyframes cardin { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
   /* ---- 牌堆式叠放（自动换行，任何宽度完整显示） ---- */
   .pile { display: inline-block; vertical-align: bottom; margin: 0 10px 6px 0; white-space: nowrap; }
-  .pile .card { position: relative; display: block; margin-top: -15px; }
+  .pile .card { position: relative; display: flex; align-items: flex-start; justify-content: center; padding-top: 5px; margin-top: -26px; }
   .pile .card:first-child { margin-top: 0; }
   /* ---- 理牌区（摆牌型） ---- */
   .rowszone { margin-top: 12px; }
@@ -78,10 +78,10 @@
     .nav { margin-left: 0; width: 100%; }
     main { margin: 10px auto; padding: 0 8px; }
     .panel { padding: 14px; border-radius: 10px; margin-bottom: 12px; }
-    .card { min-width: 38px; padding: 7px 3px; font-size: 13px; }
-    .pile .card { margin-top: -12px; }
+    .card { height: 46px; min-width: 38px; padding: 7px 3px; font-size: 13px; }
+    .pile .card { margin-top: -22px; padding-top: 4px; }
     .deckwrap { gap: 5px; padding: 10px; }
-    .cardback { width: 38px; height: 56px; line-height: 52px; font-size: 17px; }
+    .cardback { width: 38px; height: 46px; line-height: 42px; font-size: 17px; }
     .btnrow button { padding: 13px 18px; font-size: 16px; }
     .pile { margin: 0 6px 8px 0; }
     .rowslot { padding: 8px; margin: 6px 0; }
