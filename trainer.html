@@ -68,6 +68,37 @@
   .chatline.kimi { background: #eef6ef; border-radius: 6px; padding: 6px 10px; }
   .chatline.err { color: #c0392b; font-size: 13px; }
   .chatline.sys { color: #999; font-size: 12px; }
+  /* ---- 手机窄屏适配 ---- */
+  @media (max-width: 720px) {
+    body { padding-bottom: 20px; }
+    header { padding: 10px 12px; gap: 8px; }
+    header h1 { font-size: 16px; }
+    header select, header button, .nav button { font-size: 13px; padding: 8px 10px; }
+    .nav { margin-left: 0; width: 100%; }
+    main { margin: 10px auto; padding: 0 8px; }
+    .panel { padding: 14px; border-radius: 10px; margin-bottom: 12px; }
+    .card { min-width: 38px; padding: 7px 3px; font-size: 13px; }
+    .deckwrap { gap: 5px; padding: 10px; }
+    .cardback { width: 38px; height: 56px; line-height: 52px; font-size: 17px; }
+    .btnrow button { padding: 13px 18px; font-size: 16px; }
+    .pile { margin: 0 6px 8px 0; }
+    .rowslot { padding: 8px; margin: 6px 0; }
+    form select, form input[type=text], textarea, input[type=text] { font-size: 16px; }
+    .opt { padding: 12px; }
+    table.journal { font-size: 12px; }
+    table.journal th, table.journal td { padding: 6px 6px; }
+    .cols > div { min-width: 0; }
+  }
+  /* ---- 手机横屏（高度紧张）：手牌区与理牌区左右并排，整页滚动 ---- */
+  @media (orientation: landscape) and (max-height: 560px) {
+    #step1Panel { display: flex; flex-wrap: wrap; align-items: flex-start; }
+    #step1Panel > .deckwrap { width: 100%; order: 1; }
+    #step1Panel > .handzone { width: 50%; order: 2; }
+    #step1Panel > .rowszone { width: 47%; order: 3; }
+    #step1Panel > .btnrow { width: 100%; order: 4; margin-top: 8px; }
+    .stepbar { margin-bottom: 8px; }
+    .handzone { margin-top: 0; }
+  }
   .grouptitle { font-size: 13px; color: #0a3a22; margin-top: 12px; font-weight: bold; }
   .btnrow { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
   .btnrow button { font-size: 15px; padding: 10px 22px; border: none; border-radius: 8px; cursor: pointer; background: #0f5132; color: #fff; font-weight: bold; }
@@ -398,6 +429,7 @@ function refreshDrawCount() {
   if (c) c.textContent = '已抓 ' + drawn + '/27';
   var hint = document.getElementById('drawAllHint');
   if (hint) hint.textContent = (drawn === 27) ? '27张抓完了，检查一下手牌结构，进评估吧' : '';
+  if (deckZoneEl) deckZoneEl.style.display = (drawn === 27) ? 'none' : '';   // 抓完收起抓牌区
 }
 
 function onDeckClick(e) {
@@ -427,7 +459,7 @@ function resetDraw() {
   state.cardEls = {};
   state.rows = [[], [], [], [], [], []];
   state.activeRow = 0;
-  if (deckZoneEl) renderDeckArea(deckZoneEl);
+  if (deckZoneEl) { deckZoneEl.style.display = ''; renderDeckArea(deckZoneEl); }
   if (handZoneEl) handZoneEl.innerHTML = '';
   if (rowsZoneEl) renderRows(rowsZoneEl);
   refreshDrawCount();
@@ -1072,6 +1104,18 @@ function refreshChatDot(text) {
   if (dot) dot.textContent = '（' + text + '）';
 }
 
+// 屏幕旋转/窗口尺寸变化时，重排手牌（横竖屏切换牌位自适应）
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('resize', function () {
+    if (state.view === 'train' && state.step === 1) layoutHand();
+  });
+  window.addEventListener('orientationchange', function () {
+    setTimeout(function () {
+      if (state.view === 'train' && state.step === 1) layoutHand();
+    }, 300);
+  });
+}
+
 function groupedHtml(hand) {
   var lvl = state.quiz.level;
   var groups = [], i, sv, g;
@@ -1124,6 +1168,7 @@ function renderTrain(app) {
 
   if (state.step === 1) {
     var p1 = el('div', 'panel');
+    p1.id = 'step1Panel';
     p1.innerHTML = '<h2>第 ① 步：抓牌理牌（打' + E.LEVEL_NAMES[q.level] + '，红桃' + E.LEVEL_NAMES[q.level] + '=配牌⭐） ' +
       '<span id="drawCnt" style="font-size:14px;color:#666">已抓 0/27</span> <span id="lastDraw" style="font-size:13px;color:#888"></span> <span id="drawAllHint" style="font-size:13px;color:#2e8b57"></span></h2>' +
       '<div class="muted">像真实抓牌：点击下面的<b>蓝色背面牌</b>抓牌，牌会翻开并自动插进你的"手牌"。手牌按 <b>大王→小王→级牌→A→K→…→2</b> 排列，<b>同点数自动叠放</b>——叠几层就是几张，叠到 4 层就是炸。抓完（或边抓边理）把炸弹、同花顺、顺子等成型牌型<b>点入手牌区下方的理牌区</b>一行行摆好，每行会自动校验牌型。</div>';
