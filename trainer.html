@@ -139,6 +139,7 @@
   <button class="primary" id="btnDeal">发一副新牌（27张）</button>
   <div class="nav">
     <button data-view="train" class="active">练习</button>
+    <button data-view="memory">记牌</button>
     <button data-view="journal">错题本</button>
     <button data-view="selftest">引擎自检</button>
   </div>
@@ -215,12 +216,13 @@ function el(tag, cls, html) {
   return e;
 }
 
-function cardHtml(card) {
+function cardHtml(card, lvlOverride) {
+  var lvl = lvlOverride || (state.quiz ? state.quiz.level : 15);
   var cls = 'card';
   if (card.suit === 'H' || card.suit === 'D') cls += ' red';
   if (card.suit === 'JOKER') cls += ' joker';
-  if (E.isPei(card, state.quiz.level)) cls += ' wild';
-  return '<span class="' + cls + '">' + E.cardLabel(card, state.quiz.level) + '</span>';
+  if (E.isPei(card, lvl)) cls += ' wild';
+  return '<span class="' + cls + '">' + E.cardLabel(card, lvl) + '</span>';
 }
 
 /* ---------- 理牌计时器（实战建议 75 秒内完成） ---------- */
@@ -1064,8 +1066,8 @@ function refreshChatDot(text) {
 
 // 屏幕旋转无需特殊处理：手牌区为流式布局，浏览器自动换行
 
-function groupedHtml(hand) {
-  var lvl = state.quiz.level;
+function groupedHtml(hand, lvlOverride) {
+  var lvl = lvlOverride || (state.quiz ? state.quiz.level : 15);
   var groups = [], i, sv, g;
   for (i = 0; i < hand.length; i++) {
     sv = E.sortValue(hand[i].v, lvl);
@@ -1097,6 +1099,7 @@ function render() {
   app.innerHTML = '';
   if (state.view === 'train') renderTrain(app);
   else if (state.view === 'journal') renderJournal(app);
+  else if (state.view === 'memory') renderMemory(app);
   else renderSelftest(app);
 }
 
@@ -1389,6 +1392,121 @@ function renderJournal(app) {
 }
 
 /* ---------- 自检 ---------- */
+/* ---------- 记牌训练：看手牌+已出牌，算关键牌剩余 ---------- */
+function memBucket(card, level) {
+  if (card.suit === 'JOKER') return card.v === 17 ? 'bigJ' : 'smallJ';
+  if (E.isPei(card, level)) return 'pei';
+  if (card.v === level) return 'level';
+  if (card.v === 14) return 'A';
+  return 'v' + card.v;
+}
+
+function buildMemoryRound(level, rng) {
+  rng = rng || Math.random;
+  var hand = E.dealHand(level, rng);
+  var ids = {}, i;
+  for (i = 0; i < hand.length; i++) ids[hand[i].id] = true;
+  var deck = E.makeDeck(), rest = [];
+  for (i = 0; i < deck.length; i++) if (!ids[deck[i].id]) rest.push(deck[i]);
+  E.shuffle(rest, rng);
+  var played = rest.slice(0, 10 + Math.floor(rng() * 9));   // 已出 10~18 张
+  var ch = {}, cp = {};
+  for (i = 0; i < hand.length; i++) { var k = memBucket(hand[i], level); ch[k] = (ch[k] || 0) + 1; }
+  for (i = 0; i < played.length; i++) { var k2 = memBucket(played[i], level); cp[k2] = (cp[k2] || 0) + 1; }
+  function mkQ(key, label, total) {
+    var h = ch[key] || 0, p = cp[key] || 0, ans = total - h - p;
+    return { key: key, label: label, answer: ans, explain: '共 ' + total + ' 张：你手 ' + h + '、已出 ' + p + '、剩 ' + ans };
+  }
+  var questions = [
+    mkQ('bigJ', '大王还剩几张？', 2),
+    mkQ('smallJ', '小王还剩几张？', 2),
+    mkQ('level', '级牌（' + E.LEVEL_NAMES[level] + '）还剩几张？（含配⭐）', 8),
+    mkQ('pei', '红桃配⭐还剩几张？', 2)
+  ];
+  var cands = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].filter(function (v) { return v !== level; });
+  var v5 = cands[Math.floor(rng() * cands.length)];
+  questions.push(mkQ('v' + v5, E.LEVEL_NAMES[v5] + ' 还剩几张？', 8));
+  return { hand: hand, played: played, level: level, questions: questions, qi: 0, correct: 0, done: false };
+}
+
+function memCardHtml(card, lvl) {
+  var cls = 'card';
+  if (card.suit === 'H' || card.suit === 'D') cls += ' red';
+  if (card.suit === 'JOKER') cls += ' joker';
+  if (E.isPei(card, lvl)) cls += ' wild';
+  return '<span class="' + cls + '">' + E.cardLabel(card, lvl) + '</span>';
+}
+
+function renderMemory(app) {
+  var p = el('div', 'panel');
+  if (!state.mem) {
+    p.innerHTML = '<h2>记牌训练</h2>' +
+      '<div class="muted">记牌是"会打"到"常赢"的分水岭。玩法：看<b>你的手牌</b>和<b>本局已打出的牌</b>，回答 5 道题——外面还剩几张关键牌（王、级牌、配必记，再带一张普通点数）。<br><br>标准算法：剩余 = 总张数 − 你手里 − 已打出。两副牌口诀：<b>王各 2 张、级牌 8 张（含 2 配）、配 2 张、其他点数各 8 张</b>。</div>';
+    var r = el('div', 'btnrow');
+    var b = el('button', '', '开始一轮（5 题）');
+    b.onclick = function () { state.mem = buildMemoryRound(15); render(); };
+    r.appendChild(b);
+    p.appendChild(r);
+  } else if (!state.mem.done) {
+    var m = state.mem, q = m.questions[m.qi];
+    var playedHtml = m.played.map(function (c) { return memCardHtml(c, m.level); }).join('');
+    p.innerHTML = '<h2>记牌训练 · 第 ' + (m.qi + 1) + '/5 题（打' + E.LEVEL_NAMES[m.level] + '）</h2>' +
+      '<div class="grouptitle">你的手牌：</div>' + groupedHtml(m.hand, m.level) +
+      '<div class="grouptitle">本局已打出（' + m.played.length + ' 张，无序）：</div>' +
+      '<div class="cards" style="background:#ececdd;border-radius:10px;padding:8px">' + playedHtml + '</div>' +
+      '<div class="grouptitle" style="margin-top:12px">第 ' + (m.qi + 1) + ' 题</div>' +
+      '<div style="font-size:16px;font-weight:bold;margin:6px 0">' + q.label + '</div>' +
+      '<input type="number" id="memAns" min="0" max="8" style="font-size:18px;padding:10px;width:110px;border:1px solid #aaa;border-radius:6px" onkeydown="if(event.keyCode===13)memSubmit()">' +
+      '<button type="button" onclick="memSubmit()" style="margin-left:8px">确定</button>' +
+      '<div id="memFeedback" style="margin-top:10px"></div>';
+  } else {
+    var m2 = state.mem;
+    var rowsHtml = '';
+    for (var i = 0; i < m2.questions.length; i++) {
+      var qq = m2.questions[i];
+      rowsHtml += '<div class="verdict ' + (qq.ok ? 'ok' : 'bad') + '">' + (qq.ok ? '✔' : '✘') + ' ' + qq.label +
+        ' 你答 ' + (qq.user === undefined ? '—' : qq.user) + '，正确 ' + qq.answer + '。' + qq.explain + '</div>';
+    }
+    var praise = m2.correct === 5 ? '完美！这局的大牌你全掌握。' : m2.correct === 4 ? '很好，差一点就全对。' : m2.correct >= 3 ? '及格，继续练反应速度。' : '别急，先在心里默念口诀再算：剩余 = 总 − 手牌 − 已出。';
+    p.innerHTML = '<h2>本轮成绩：' + m2.correct + '/5</h2><div class="muted">' + praise + '</div>' + rowsHtml;
+    var r2 = el('div', 'btnrow');
+    var b2 = el('button', '', '再来一轮');
+    b2.onclick = function () { state.mem = buildMemoryRound(15); render(); };
+    var b3 = el('button', 'alt', '返回');
+    b3.onclick = function () { state.mem = null; state.view = 'train'; render(); };
+    r2.appendChild(b2);
+    r2.appendChild(b3);
+    p.appendChild(r2);
+  }
+  app.appendChild(p);
+}
+
+function memSubmit() {
+  var m = state.mem;
+  if (!m || m.done) return;
+  var inp = document.getElementById('memAns');
+  var fb = document.getElementById('memFeedback');
+  if (!inp || !fb) return;
+  var val = parseInt(inp.value, 10);
+  if (isNaN(val)) { fb.innerHTML = '<div class="verdict mid">先填个数字</div>'; return; }
+  var q = m.questions[m.qi];
+  var okv = (val === q.answer);
+  if (okv) m.correct++;
+  q.user = val;
+  q.ok = okv;
+  fb.innerHTML = '<div class="verdict ' + (okv ? 'ok' : 'bad') + '">' + (okv ? '✔ 正确！' : '✘ 正确答案是 ' + q.answer + '。') + q.explain + '</div>' +
+    '<div class="btnrow"><button type="button" onclick="memNext()">' + (m.qi === m.questions.length - 1 ? '看成绩' : '下一题') + '</button></div>';
+  if (fb.scrollIntoView) fb.scrollIntoView(false);
+}
+
+function memNext() {
+  var m = state.mem;
+  if (!m) return;
+  m.qi++;
+  if (m.qi >= m.questions.length) m.done = true;
+  render();
+}
+
 function renderSelftest(app) {
   var p = el('div', 'panel');
   p.innerHTML = '<h2>引擎自检</h2><div class="muted">随机发 3000 手牌，检查牌数、重复、评估合法性，并输出分数与档位分布。怀疑结果异常时点一下。</div>';
